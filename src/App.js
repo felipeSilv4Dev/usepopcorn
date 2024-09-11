@@ -53,7 +53,7 @@ const average = (arr) =>
 const KEY = "811893ea";
 
 export default function App() {
-  const [query, setQuery] = useState("inception");
+  const [query, setQuery] = useState("");
   const [movies, setMovies] = useState([]);
   const [watched, setWatched] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,6 +75,7 @@ export default function App() {
   function handleDeleteWatched(id) {
     setWatched((watched) => watched.filter((watched) => watched.imdbID !== id));
   }
+
   useEffect(() => {
     const fetchMovies = async () => {
       try {
@@ -105,6 +106,7 @@ export default function App() {
       return;
     }
 
+    handleCloseMovie();
     fetchMovies();
   }, [query]);
 
@@ -296,13 +298,33 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
     onCloseMovie();
   }
 
+  useEffect(() => {
+    const callback = (e) => {
+      if (e.code === "Escape") {
+        onCloseMovie();
+      }
+    };
+
+    document.addEventListener("keydown", callback);
+
+    return () => {
+      document.removeEventListener("keydown", callback);
+    };
+  }, [onCloseMovie]);
+
   useEffect(
     function () {
+      const controller = new AbortController();
       async function getMovieDetails() {
         try {
           setIsLoading(true);
+          setError(null);
+
           const response = await fetch(
-            `http://www.omdbapi.com/?apikey=${KEY}&i=${selectedId}`
+            `http://www.omdbapi.com/?apikey=${KEY}&i=${selectedId}`,
+            {
+              signal: controller.signal,
+            }
           );
 
           if (!response.ok)
@@ -310,6 +332,7 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
 
           const data = await response.json();
           setMovie(data);
+          setError(null);
         } catch (err) {
           setError(err.message);
         } finally {
@@ -319,6 +342,8 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
       }
 
       getMovieDetails();
+
+      return () => controller.abort();
     },
     [selectedId]
   );
